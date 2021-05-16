@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">DataTransfer</string>
+    <string name="arduino_data">Arduino Data</string>
+    <string name="update">Update</string>
+    <string name="send">Send</string>
+    <string name="clear">Clear</string>
+    <string name="stop">Stop</string>
+    <string name="current">Current</string>
+    <string name="voltage">Voltage</string>
+</resources>

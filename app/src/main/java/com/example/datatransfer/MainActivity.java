@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
+import java.util.*;
 
 import static android.content.ContentValues.TAG;
 
@@ -42,23 +43,13 @@ public class MainActivity extends AppCompatActivity {
     public static BluetoothSocket mmSocket;
     public static ConnectedThread connectedThread;
     public static CreateConnectThread createConnectThread;
-    ArduinoMessage arduino;
     DatabaseReference mDatabase = FirebaseDatabase.getInstance().getReference("arduinoMessage");
+    HashMap<String
+            ,String> messageMap = new HashMap<>();
 
     private final static int CONNECTING_STATUS = 1; // used in bluetooth handler to identify message status
     private final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
 
-    public static class ArduinoMessage{
-        public static String message;
-        String status="";
-        int vol,curr,freq;
-        public ArduinoMessage(String s, int x, int y, int z){
-            this.status=s;
-            this.vol=x;
-            this.curr=y;
-            this.freq=z;
-        }
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,18 +114,9 @@ public class MainActivity extends AppCompatActivity {
 
                     case MESSAGE_READ:
                         String arduinoMsg = msg.obj.toString(); // Read message from Arduino
-                        ArduinoMessage.message = arduinoMsg;
-                        textViewVal.setText ( arduinoMsg );
-                        //myRef.setValue(arduinoMsg);
-                        String[] val=arduinoMsg.split ( " " );
-                        if(val.length==6 && val[0]=="<" && val[5]==">"){
-                            String unixTime = String.valueOf(System.currentTimeMillis() / 1000L);
-                            ArduinoMessage message = new ArduinoMessage(val[1],
-                                    Integer.parseInt(val[2]),Integer.parseInt(val[3]),Integer.parseInt(val[4]));
-                            mDatabase.child(unixTime).setValue (new ArduinoMessage(val[1],
-                                    Integer.parseInt(val[2]),Integer.parseInt(val[3]),Integer.parseInt(val[4])));
-                        }
-
+                        String unixTime = String.valueOf(System.currentTimeMillis() / 1000L);
+                        messageMap.put(unixTime,arduinoMsg);
+                        textViewVal.setText (arduinoMsg);
                         switch (arduinoMsg.toLowerCase()){
                             case "led is turned on":
                              //   imageView.setBackgroundColor(getResources().getColor(R.color.colorOn));
@@ -186,23 +168,20 @@ public class MainActivity extends AppCompatActivity {
        buttonData.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mDatabase.addValueEventListener(new ValueEventListener () {
-                    @Override
-                    public void onDataChange(DataSnapshot dataSnapshot) {
-                        // This method is called once with the initial value and again
-                        // whenever data at this location is updated.
-                        String value = dataSnapshot.getValue(String.class);
-                        textViewVal.setText( value );
-                        Log.d(TAG, "Value is: " + value);
+                //String unixTime = String.valueOf(System.currentTimeMillis() / 1000L);
+                //mDatabase.child("TestDataAdded").setValue(unixTime);
+                if(messageMap.isEmpty()){
+                    mDatabase.child(String.valueOf(System.currentTimeMillis() / 1000L)).setValue("Map is Empty");
+                }
+                Set<Map.Entry<String, String>> entrySet = messageMap.entrySet();
+                for(Map.Entry<String,String> entry : entrySet){
+                    String[] val=entry.getValue().split ( " " );
+                    mDatabase.child(entry.getKey()).child("message").setValue(entry.getValue());
+                    if(val.length==6 && val[0]=="<" && val[5]==">"){
+                        mDatabase.child(entry.getKey()).child("metrics").setValue("{" + "Status:"+val[1]+","+"Voltage:"+val[2]+","+"Current"+val[3]+","+"Frequency:"+val[4]+"}");
                     }
-
-                    @Override
-                    public void onCancelled(DatabaseError error) {
-                        // Failed to read value
-                        textViewVal.setText( "Failed to read value." );
-                        Log.w(TAG, "Failed to read value.", error.toException());
-                    }
-                });
+                }
+                messageMap.clear();
             }
         });
     }
